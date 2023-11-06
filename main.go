@@ -22,6 +22,7 @@ var (
 	defaultPort    = 53
 	nextCandidate  string
 	domainQueue    = make(chan string, 500)
+	recursiveQueue = make(chan string, 500)
 	dnsResolvers   = []string{"1.1.1.1", "8.8.8.8", "9.9.9.9", "8.8.4.4"}
 )
 
@@ -43,6 +44,18 @@ func main() {
 		}()
 	}
 
+	var rg sync.WaitGroup
+	for i := 0; i < maxConcurrency; i++ {
+		rg.Add(1)
+		go func() {
+			defer rg.Done()
+			for domain := range recursiveQueue {
+				// fmt.Printf("Doing recursive search on %s\n", domain)
+				domainWorker(domain)
+			}
+		}()
+	}
+
 	success, err := getUserInput()
 	if !success || err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to get user input:", err)
@@ -51,4 +64,7 @@ func main() {
 
 	close(domainQueue)
 	wg.Wait()
+
+	close(recursiveQueue)
+	rg.Wait()
 }

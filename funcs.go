@@ -66,6 +66,9 @@ func domainWorker(zone string) {
 			break
 		}
 		nextCandidate = next
+
+		// send to the recursive queue
+		recursiveQueue <- generateProbeLabel(next) + zone
 	}
 }
 
@@ -76,7 +79,7 @@ of which yields the prev and next NSEC zone
 */
 func searchNsecRange(ns string, label string, zone string) (prev string, next string, err error) {
 	var in *dns.Msg
-	probeLabel := generateProbeLabel(label, zone)
+	probeLabel := generateProbeLabel(label)
 	re := regexp.MustCompile(`^(([^\.]+\.)*([^\.]+)\.|)` + regexp.QuoteMeta(zone) + `\.*$`)
 
 	const maxRetries = 3
@@ -128,7 +131,7 @@ foo.example.com becomes foo--.example.com
 aaa[...snip...]aaaaaa.example.com becomes aaa[...snip...]aaaaab.example.com
 aaa[...snip...]aaaaa-.example.com becomes aaa[...snip...]aaaa-0.example.com
 */
-func generateProbeLabel(label string, zone string) string {
+func generateProbeLabel(label string) string {
 	probeLabel := strings.ToLower(label) + "--"
 	if len(probeLabel) > 63 {
 		c := probeLabel[62]
