@@ -9,6 +9,7 @@ by walking NSEC records, if they're supported
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -23,6 +24,7 @@ var (
 	nextCandidate  string
 	domainQueue    = make(chan string, 500)
 	recursiveQueue = make(chan string, 500)
+	ctx, cancel    = context.WithCancel(context.Background())
 	dnsResolvers   = []string{"1.1.1.1", "8.8.8.8", "9.9.9.9", "8.8.4.4"}
 )
 
@@ -39,7 +41,7 @@ func main() {
 		go func() {
 			defer wg.Done()
 			for domain := range domainQueue {
-				domainWorker(domain)
+				domainWorker(ctx, domain)
 			}
 		}()
 	}
@@ -50,8 +52,13 @@ func main() {
 		go func() {
 			defer rg.Done()
 			for domain := range recursiveQueue {
-				// fmt.Printf("Doing recursive search on %s\n", domain)
-				domainWorker(domain)
+				// Make sure to handle context cancellation
+				select {
+				case <-ctx.Done():
+					return // Exit the goroutine if context is cancelled
+				default:
+					domainWorker(ctx, domain)
+				}
 			}
 		}()
 	}
@@ -65,6 +72,9 @@ func main() {
 	close(domainQueue)
 	wg.Wait()
 
-	close(recursiveQueue)
+	cancel()
+
 	rg.Wait()
+	close(recursiveQueue)
+
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -24,7 +25,7 @@ once all available records have been read. It's common in large zones to get
 errors from the DNS resolver due to too many requests, hence retry logic is adopted which
 selects an alternate resolver from the list
 */
-func domainWorker(zone string) {
+func domainWorker(ctx context.Context, zone string) {
 	nextCandidate := ""
 	maxRetries := 5
 	retryDelay := time.Second
@@ -67,8 +68,11 @@ func domainWorker(zone string) {
 		}
 		nextCandidate = next
 
-		// send to the recursive queue
-		recursiveQueue <- next + "." + zone
+		select {
+		case <-ctx.Done():
+			return
+		case recursiveQueue <- next + "." + zone:
+		}
 	}
 }
 
