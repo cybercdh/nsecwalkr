@@ -33,13 +33,11 @@ func main() {
 	flag.BoolVar(&isVerbose, "v", false, "output more info on attempts")
 	flag.Parse()
 
-	err := fetchDNSResolvers("https://raw.githubusercontent.com/trickest/resolvers/main/resolvers.txt")
+	err := fetchDNSResolvers("https://raw.githubusercontent.com/trickest/resolvers/main/resolvers-trusted.txt")
 	if err != nil {
 		fmt.Println("Error fetching DNS resolvers:", err)
 		return
 	}
-
-	dnsServer = getRandomResolver()
 
 	var wg sync.WaitGroup
 	for i := 0; i < maxConcurrency; i++ {

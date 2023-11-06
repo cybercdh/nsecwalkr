@@ -32,6 +32,8 @@ func domainWorker(ctx context.Context, zone string) {
 	retryDelay := time.Second
 
 	for {
+		dnsServer = getRandomResolver()
+
 		prev, next, err := searchNsecRange(dnsServer, nextCandidate, zone)
 		if err != nil {
 			if isVerbose {
