@@ -25,7 +25,6 @@ var (
 	domainQueue    = make(chan string, 500)
 	recursiveQueue = make(chan string, 500)
 	ctx, cancel    = context.WithCancel(context.Background())
-	dnsResolvers   = []string{"1.1.1.1", "8.8.8.8", "9.9.9.9", "8.8.4.4"}
 )
 
 func main() {
@@ -52,10 +51,9 @@ func main() {
 		go func() {
 			defer rg.Done()
 			for domain := range recursiveQueue {
-				// Make sure to handle context cancellation
 				select {
 				case <-ctx.Done():
-					return // Exit the goroutine if context is cancelled
+					return
 				default:
 					domainWorker(ctx, domain)
 				}
