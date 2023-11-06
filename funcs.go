@@ -68,7 +68,7 @@ func domainWorker(zone string) {
 		nextCandidate = next
 
 		// send to the recursive queue
-		recursiveQueue <- generateProbeLabel(next) + zone
+		recursiveQueue <- next + "." + zone
 	}
 }
 
