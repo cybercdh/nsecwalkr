@@ -12,10 +12,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strconv"
 	"sync"
-
-	"github.com/miekg/dns"
 )
 
 var (
@@ -33,15 +30,7 @@ func main() {
 	flag.BoolVar(&isVerbose, "v", false, "output more info on attempts")
 	flag.Parse()
 
-	defaultResolver, err := dns.ClientConfigFromFile("/etc/resolv.conf")
-	if err != nil {
-		if isVerbose {
-			fmt.Fprintln(os.Stderr, "Failed to read DNS configuration, using a random resolver:", err)
-		}
-		dnsServer = getRandomResolver()
-	} else {
-		dnsServer = defaultResolver.Servers[0] + ":" + strconv.Itoa(defaultPort)
-	}
+	dnsServer = getRandomResolver()
 
 	var wg sync.WaitGroup
 	for i := 0; i < maxConcurrency; i++ {
