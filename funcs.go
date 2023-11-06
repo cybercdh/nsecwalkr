@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"net/http"
 	"os"
 	"regexp"
 	"strconv"
@@ -197,6 +198,34 @@ func dnssecQuery(ns string, qn string) (r *dns.Msg, rtt time.Duration, err error
 
 func getRandomResolver() string {
 	return dnsResolvers[rand.Intn(len(dnsResolvers))] + ":" + strconv.Itoa(defaultPort)
+}
+
+func fetchDNSResolvers(url string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		line := scanner.Text()
+		dnsResolvers = append(dnsResolvers, line)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 /*

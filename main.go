@@ -22,6 +22,7 @@ var (
 	dnsServer      string
 	defaultPort    = 53
 	nextCandidate  string
+	dnsResolvers   []string
 	domainQueue    = make(chan string, 500)
 	recursiveQueue = make(chan string, 500)
 	ctx, cancel    = context.WithCancel(context.Background())
@@ -31,6 +32,12 @@ func main() {
 	flag.IntVar(&maxConcurrency, "c", 20, "set the concurrency level")
 	flag.BoolVar(&isVerbose, "v", false, "output more info on attempts")
 	flag.Parse()
+
+	err := fetchDNSResolvers("https://raw.githubusercontent.com/trickest/resolvers/main/resolvers.txt")
+	if err != nil {
+		fmt.Println("Error fetching DNS resolvers:", err)
+		return
+	}
 
 	dnsServer = getRandomResolver()
 
