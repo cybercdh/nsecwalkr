@@ -7,8 +7,8 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
-	"net/http"
 	"os"
 	"regexp"
 	"strconv"
@@ -30,47 +30,67 @@ func domainWorker(ctx context.Context, zone string) {
 	nextCandidate := ""
 	maxRetries := 5
 	retryDelay := time.Second
+	var currentDNSResolver string
 
 	for {
-		dnsServer = getRandomResolver()
 
-		prev, next, err := searchNsecRange(dnsServer, nextCandidate, zone)
-		if err != nil {
-			if isVerbose {
-				fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
+		// either use custom resolver, or get a random trusted one
+		if dnsServer == "" {
+			currentDNSResolver = getRandomResolver()
+		} else {
+			if currentDNSResolver == "" {
+				currentDNSResolver = dnsServer + ":" + strconv.Itoa(defaultPort)
 			}
+		}
+
+		// enumerate the current range
+		prev, next, err := searchNsecRange(currentDNSResolver, nextCandidate, zone)
+
+		// retry logic includes using a different resolver if a custom one isn't used
+		if err != nil {
 			if err.Error() == "NSEC record not found" {
 				if isVerbose {
-					fmt.Fprint(os.Stderr, "NSEC record not found for the domain, exiting.\n")
+					log.Printf("NSEC record not found for zone %s\n", zone)
 				}
 				break
+			}
+			if isVerbose {
+				log.Printf("ERROR: %s\n", err)
 			}
 			maxRetries--
 			if maxRetries <= 0 {
 				if isVerbose {
-					fmt.Fprint(os.Stderr, "Max retries reached. Exiting.\n")
+					log.Printf("Max retries reached zone %s\n", nextCandidate+"."+zone)
 				}
 				break
 			}
 
+			// exponential backoff
 			time.Sleep(retryDelay)
-			retryDelay *= 2 // exponential backoff
+			retryDelay *= 2
 
-			randomResolver := getRandomResolver()
-			if isVerbose {
-				fmt.Fprintf(os.Stderr, "Attempting with alternative DNS resolver: %s\n", randomResolver)
+			// reset the DNS resolver if we are not using a custom one
+			if dnsServer == "" {
+				currentDNSResolver = ""
 			}
-			dnsServer = randomResolver
+
 			continue
 		}
+
+		// assume there's a result to print
 		if prev != "" {
 			fmt.Printf("%s.%s\n", prev, zone)
 		}
+
+		// end of zone
 		if next == "" || maxRetries <= 0 {
 			break
 		}
+
+		// walk the zone using the next entry in the zone as the seed
 		nextCandidate = next
 
+		// send the next domain back to the domainWorker to recurse
 		select {
 		case <-ctx.Done():
 			return
@@ -85,12 +105,13 @@ the probeLable is used to perform a dnssecQuery, the result
 of which yields the prev and next NSEC zone
 */
 func searchNsecRange(ns string, label string, zone string) (prev string, next string, err error) {
-	var in *dns.Msg
+
 	probeLabel := generateProbeLabel(label)
 	re := regexp.MustCompile(`^(([^\.]+\.)*([^\.]+)\.|)` + regexp.QuoteMeta(zone) + `\.*$`)
 
 	const maxRetries = 3
 	for retry := 0; retry < maxRetries; retry++ {
+		var in *dns.Msg
 		in, _, err := dnssecQuery(ns, probeLabel+"."+zone)
 		if err != nil {
 			if retry < maxRetries-1 {
@@ -115,10 +136,6 @@ func searchNsecRange(ns string, label string, zone string) (prev string, next st
 				}
 			}
 		}
-	}
-
-	if isVerbose {
-		fmt.Fprintf(os.Stderr, "%v", in)
 	}
 	return "", "", errors.New("NSEC record not found")
 }
@@ -198,36 +215,11 @@ func dnssecQuery(ns string, qn string) (r *dns.Msg, rtt time.Duration, err error
 	return
 }
 
+/*
+returns a random value from the slice of dnsResolvers using the default port
+*/
 func getRandomResolver() string {
 	return dnsResolvers[rand.Intn(len(dnsResolvers))] + ":" + strconv.Itoa(defaultPort)
-}
-
-func fetchDNSResolvers(url string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return err
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	scanner := bufio.NewScanner(resp.Body)
-	for scanner.Scan() {
-		line := scanner.Text()
-		dnsResolvers = append(dnsResolvers, line)
-	}
-
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 /*

@@ -20,9 +20,8 @@ var (
 	maxConcurrency int
 	isVerbose      bool
 	dnsServer      string
-	defaultPort    = 53
+	defaultPort    int
 	nextCandidate  string
-	dnsResolvers   []string
 	domainQueue    = make(chan string, 500)
 	recursiveQueue = make(chan string, 500)
 	ctx, cancel    = context.WithCancel(context.Background())
@@ -31,13 +30,9 @@ var (
 func main() {
 	flag.IntVar(&maxConcurrency, "c", 20, "set the concurrency level")
 	flag.BoolVar(&isVerbose, "v", false, "output more info on attempts")
+	flag.IntVar(&defaultPort, "p", 53, "set the default DNS port")
+	flag.StringVar(&dnsServer, "d", "", "specify a custom DNS resolver address")
 	flag.Parse()
-
-	err := fetchDNSResolvers("https://raw.githubusercontent.com/trickest/resolvers/main/resolvers-trusted.txt")
-	if err != nil {
-		fmt.Println("Error fetching DNS resolvers:", err)
-		return
-	}
 
 	var wg sync.WaitGroup
 	for i := 0; i < maxConcurrency; i++ {
@@ -77,7 +72,7 @@ func main() {
 
 	cancel()
 
-	rg.Wait()
 	close(recursiveQueue)
+	rg.Wait()
 
 }
