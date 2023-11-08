@@ -12,6 +12,8 @@ go install github.com/cybercdh/nsecwalkr@latest
 
 ## Usage
 
+nsecwalkr has a list of reputable DNS resolvers that it will randomly select from to perform the DNS queries, however it is recommended you specify your own to avoid rate limits or having your IP banned, which could happen if you're attempting to traverse a large zone. If you don't get the results you're expecting, use the `-v` option to get more info on attempts or errors.
+
 ```bash
 nsecwalkr example.com
 
@@ -25,8 +27,12 @@ cat domains.txt | nsecwalkr
 ```bash
 Usage of nsecwalkr:
   -c int
-    	set the concurrency level (default 20)
-  -v	output more info on attempts
+      set the concurrency level (default 20)
+  -d string
+      specify a custom DNS resolver address
+  -p int
+      set the default DNS port (default 53)
+  -v  output more info on attempts
 ```
 ## Contributing
 
