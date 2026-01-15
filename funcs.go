@@ -1,21 +1,20 @@
 package main
 
 import (
-	"bufio"
-	"context"
-	"errors"
-	"flag"
-	"fmt"
-	"io"
-	"log"
-	"math/rand"
-	"os"
-	"regexp"
-	"strconv"
-	"strings"
-	"time"
+    "bufio"
+    "errors"
+    "flag"
+    "fmt"
+    "io"
+    "log"
+    "math/rand"
+    "os"
+    "regexp"
+    "strconv"
+    "strings"
+    "time"
 
-	"github.com/miekg/dns"
+    "github.com/miekg/dns"
 )
 
 /*
@@ -26,11 +25,11 @@ once all available records have been read. It's common in large zones to get
 errors from the DNS resolver due to too many requests, hence retry logic is adopted which
 selects an alternate resolver from the list
 */
-func domainWorker(ctx context.Context, zone string) {
-	nextCandidate := ""
-	maxRetries := 5
-	retryDelay := time.Second
-	var currentDNSResolver string
+func domainWorker(zone string) {
+    nextCandidate := ""
+    maxRetries := 5
+    retryDelay := time.Second
+    var currentDNSResolver string
 
 	for {
 
@@ -77,26 +76,25 @@ func domainWorker(ctx context.Context, zone string) {
 			continue
 		}
 
-		// assume there's a result to print
-		if prev != "" {
-			fmt.Printf("%s.%s\n", prev, zone)
-		}
+        // assume there's a result to print
+        if prev != "" {
+            fmt.Printf("%s.%s\n", prev, zone)
+        }
 
-		// end of zone
-		if next == "" || maxRetries <= 0 {
-			break
-		}
+        // successful response resets retry counters
+        maxRetries = 5
+        retryDelay = time.Second
+
+        // end of zone
+        if next == "" || maxRetries <= 0 {
+            break
+        }
 
 		// walk the zone using the next entry in the zone as the seed
 		nextCandidate = next
 
-		// send the next domain back to the domainWorker to recurse
-		select {
-		case <-ctx.Done():
-			return
-		case recursiveQueue <- next + "." + zone:
-		}
-	}
+        // continue iterating within this zone using the next candidate
+    }
 }
 
 /*
