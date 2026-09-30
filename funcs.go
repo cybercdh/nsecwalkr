@@ -1,20 +1,20 @@
 package main
 
 import (
-    "bufio"
-    "errors"
-    "flag"
-    "fmt"
-    "io"
-    "log"
-    "math/rand"
-    "os"
-    "regexp"
-    "strconv"
-    "strings"
-    "time"
+	"bufio"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"log"
+	"math/rand"
+	"os"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
 
-    "github.com/miekg/dns"
+	"github.com/miekg/dns"
 )
 
 /*
@@ -26,10 +26,10 @@ errors from the DNS resolver due to too many requests, hence retry logic is adop
 selects an alternate resolver from the list
 */
 func domainWorker(zone string) {
-    nextCandidate := ""
-    maxRetries := 5
-    retryDelay := time.Second
-    var currentDNSResolver string
+	nextCandidate := ""
+	maxRetries := 5
+	retryDelay := time.Second
+	var currentDNSResolver string
 
 	for {
 
@@ -76,25 +76,25 @@ func domainWorker(zone string) {
 			continue
 		}
 
-        // assume there's a result to print
-        if prev != "" {
-            fmt.Printf("%s.%s\n", prev, zone)
-        }
+		// assume there's a result to print
+		if prev != "" {
+			fmt.Printf("%s.%s\n", prev, zone)
+		}
 
-        // successful response resets retry counters
-        maxRetries = 5
-        retryDelay = time.Second
+		// successful response resets retry counters
+		maxRetries = 5
+		retryDelay = time.Second
 
-        // end of zone
-        if next == "" || maxRetries <= 0 {
-            break
-        }
+		// end of zone
+		if next == "" || maxRetries <= 0 {
+			break
+		}
 
 		// walk the zone using the next entry in the zone as the seed
 		nextCandidate = next
 
-        // continue iterating within this zone using the next candidate
-    }
+		// continue iterating within this zone using the next candidate
+	}
 }
 
 /*

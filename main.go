@@ -9,18 +9,18 @@ by walking NSEC records, if they're supported
 package main
 
 import (
-    "flag"
-    "fmt"
-    "os"
-    "sync"
+	"flag"
+	"fmt"
+	"os"
+	"sync"
 )
 
 var (
-    maxConcurrency int
-    isVerbose      bool
-    dnsServer      string
-    defaultPort    int
-    domainQueue    = make(chan string, 500)
+	maxConcurrency int
+	isVerbose      bool
+	dnsServer      string
+	defaultPort    int
+	domainQueue    = make(chan string, 500)
 )
 
 func main() {
@@ -30,24 +30,33 @@ func main() {
 	flag.StringVar(&dnsServer, "d", "", "specify a custom DNS resolver address")
 	flag.Parse()
 
+	if maxConcurrency < 1 {
+		fmt.Fprintf(os.Stderr, "-c must be at least 1 (got %d)\n", maxConcurrency)
+		os.Exit(2)
+	}
+	if defaultPort < 1 || defaultPort > 65535 {
+		fmt.Fprintf(os.Stderr, "-p must be between 1 and 65535 (got %d)\n", defaultPort)
+		os.Exit(2)
+	}
+
 	var wg sync.WaitGroup
 	for i := 0; i < maxConcurrency; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-            for domain := range domainQueue {
-                domainWorker(domain)
-            }
+			for domain := range domainQueue {
+				domainWorker(domain)
+			}
 		}()
 	}
 
-    success, err := getUserInput()
-    if !success || err != nil {
-        fmt.Fprintln(os.Stderr, "Failed to get user input:", err)
-        os.Exit(1)
-    }
+	success, err := getUserInput()
+	if !success || err != nil {
+		fmt.Fprintln(os.Stderr, "Failed to get user input:", err)
+		os.Exit(1)
+	}
 
-    close(domainQueue)
-    wg.Wait()
+	close(domainQueue)
+	wg.Wait()
 
 }
